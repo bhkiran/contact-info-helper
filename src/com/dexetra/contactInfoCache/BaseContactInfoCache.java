@@ -366,60 +366,64 @@ public abstract class BaseContactInfoCache<T extends CInfo> {
             Log.d(TAG, "querying basic info of " + number);
         if (number == null || number.length() < 1 || number.equals(UNK))
             return null;
-        Uri contactUri = Uri.withAppendedPath(Phone.CONTENT_FILTER_URI,
-                Uri.encode(number));
-        Cursor c = mContext.getContentResolver().query(contactUri, PROJECTION,
-                null, null, null);
         T info = null;
-        if (c != null && c.moveToFirst())
-            info = extractFromCursor(c);
-        if (c != null)
-            c.close();
         try {
-            if (info == null) {
-                contactUri = Uri.withAppendedPath(
-                        PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number));
-                c = mContext.getContentResolver().query(contactUri,
-                        PROJECTION_LOOKUP, null, null, null);
-                if (c != null && c.moveToFirst())
+            Uri contactUri = Uri.withAppendedPath(Phone.CONTENT_FILTER_URI,
+                    Uri.encode(number));
+            Cursor c = mContext.getContentResolver().query(contactUri, PROJECTION,
+                    null, null, null);
+            info = null;
+            if (c != null && c.moveToFirst())
+                info = extractFromCursor(c);
+            if (c != null)
+                c.close();
+            try {
+                if (info == null) {
+                    contactUri = Uri.withAppendedPath(
+                            PhoneLookup.CONTENT_FILTER_URI, Uri.encode(number));
+                    c = mContext.getContentResolver().query(contactUri,
+                            PROJECTION_LOOKUP, null, null, null);
+                    if (c != null && c.moveToFirst())
+                        info = extractFromCursor(c);
+                    if (c != null)
+                        c.close();
+                }
+            } catch (Exception e) {
+            }
+            if (info != null) return info;
+            long num_id = getNumId(number);
+            if (info == null && num_id != -1 && num_id > 9999) {
+                c = mContext.getContentResolver().query(Phone.CONTENT_URI,
+                        PROJECTION,
+                        Phone.NUMBER + " LIKE '%" + num_id + "'", null,
+                        Phone.LAST_TIME_CONTACTED + " desc");
+                if (c != null && c.moveToNext())
                     info = extractFromCursor(c);
                 if (c != null)
                     c.close();
             }
-        } catch (Exception e) {
-        }
-        if (info != null) return info;
-        long num_id = getNumId(number);
-        if (info == null && num_id != -1 && num_id > 9999) {
-            c = mContext.getContentResolver().query(Phone.CONTENT_URI,
-                    PROJECTION,
-                    Phone.NUMBER + " LIKE '%" + num_id + "'", null,
-                    Phone.LAST_TIME_CONTACTED + " desc");
-            if (c != null && c.moveToNext())
-                info = extractFromCursor(c);
+            if (info == null && num_id != -1) {
+                try {
+                    c = mContext.getContentResolver().query(Phone.CONTENT_URI,
+                            PROJECTION, null, null, null);
+                    if (c != null && c.moveToFirst())
+                        do {
+                            long t = getNumId(c.getString(INDEX_NUMBER));
+                            if (t == num_id) {
+                                info = extractFromCursor(c);
+                                break;
+                            }
+                        } while (c.moveToNext());
+
+                    if (c != null)
+                        c.close();
+                } catch (Exception e) {
+                }
+            }
             if (c != null)
                 c.close();
+        } catch (Exception e) {
         }
-        if (info == null && num_id != -1) {
-            try {
-                c = mContext.getContentResolver().query(Phone.CONTENT_URI,
-                        PROJECTION, null, null, null);
-                if (c != null && c.moveToFirst())
-                    do {
-                        long t = getNumId(c.getString(INDEX_NUMBER));
-                        if (t == num_id) {
-                            info = extractFromCursor(c);
-                            break;
-                        }
-                    } while (c.moveToNext());
-
-                if (c != null)
-                    c.close();
-            } catch (Exception e) {
-            }
-        }
-        if (c != null)
-            c.close();
         return info;
     }
 
